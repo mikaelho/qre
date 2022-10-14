@@ -6,8 +6,8 @@ import itertools
 import re
 from typing import List
 
-from registered_types import register_type
-from registered_types import registered_types
+from qre.registered_types import register_type
+from qre.registered_types import registered_types
 
 __all__ = ["register_type", "Matcher", "match", "match_start", "match_end", "search", "search_all"]
 

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qre"
-version = "22.09.2"
+version = "22.10.2"
 description = "Like re, but cuter."
 authors = ["Mikael Honkala <mikael.honkala@gmail.com>"]
 license = "MIT"
