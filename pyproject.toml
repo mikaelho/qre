@@ -1,11 +1,14 @@
-[tool.poetry]
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
 name = "qre"
-version = "22.10.2"
 description = "Like re, but cuter."
-authors = ["Mikael Honkala <mikael.honkala@gmail.com>"]
-license = "MIT"
+authors = [{name = "Mikael Honkala", email = "mikael.honkala@gmail.com"}]
 readme = "README.md"
-repository = "https://github.com/mikaelho/qre"
+license = {file = "LICENSE"}
+dynamic = ["version"]
 keywords = ["string", "pattern", "matching", "regular", "expression", "regex"]
 classifiers = [
     # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
@@ -17,12 +20,11 @@ classifiers = [
     "Topic :: Text Processing",
     "Topic :: Utilities",
 ]
-[tool.poetry.dependencies]
-python = "^3.7"
+requires-python = ">=3.7"
+[project.optional-dependencies]
+test = [
+    "pytest",
+]
 
-[tool.poetry.dev-dependencies]
-pytest = "^7.2.1"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+[project.urls]
+Home = "https://github.com/mikaelho/qre"

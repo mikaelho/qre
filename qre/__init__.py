@@ -1,7 +1,28 @@
 #!/usr/bin/env python3
 """
-qre
+Pattern syntax summary
+
+Wildcards:
+  - * - any character, 0+ times
+  - + - any character, exactly once
+  - ? - any character, 0-1 times
+
+Operators:
+  - | - either of two characters or groups
+
+Groups:
+  - [name] - named group called "name", returned in the main dict.
+  - [] - unnamed group, returned in the `unnamed` list
+  - [name:4]`, `[:4] - group that is 4 characters wide
+  - [name:int], [:int] - group that matches the type and is converted to that Python type
+
+Escaping:
+  - [*], [+], [?], [|] - literal symbol, not wildcard
+  - [[, ]] - literal brackets, not groups
 """
+
+__version__ = "2023.10.1"
+
 import itertools
 import re
 from typing import List
