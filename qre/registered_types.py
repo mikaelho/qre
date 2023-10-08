@@ -3,8 +3,10 @@ import datetime
 import decimal
 import re
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
+from typing import Any
+
 
 registered_types = {}
 
@@ -15,14 +17,23 @@ class Conversion:
     converter: Callable
 
 
-# a regex that ensures all groups to be non-capturing. Otherwise they would appear in
-# the matches
+# A regex that ensures all groups to be non-capturing, so that they do not appear in the matches.
 TYPE_CLEANUP_REGEX = re.compile(r"(?<!\\)\((?!\?)")
 
 
-def register_type(name, regex, converter=str):
-    """ register a type to be available for the {value:type} matching syntax """
-    cleaned = TYPE_CLEANUP_REGEX.sub("(?:", regex)
+def register_type(
+    name: str,
+    regex: str,
+    converter: Callable[[str], Any] = str,
+    cleanup_regex=re.compile(r"(?<!\\)\((?!\?)")
+):
+    """
+    Register a type to be available for the {value:type} matching syntax.
+
+    By default, returns the matched string as is, but can be provided with a callable that takes a string and
+    converts the result to some more appropriate type (e.g. Decimal).
+    """
+    cleaned = cleanup_regex.sub("(?:", regex)
     registered_types[name] = Conversion(regex=cleaned, converter=converter)
 
 
