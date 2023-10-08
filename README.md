@@ -8,7 +8,7 @@
 |---------|:--------------------------------------------------------------------------------|
 | Pattern | `"* pattern"`                                                                   |
 | Input   | `"First pattern"`                                                               |
-| Result  | 👍🏼                                                                            |
+| Result  | Truthy                                                                          |
 |         |                                                                                 |
 | Pattern | `"World's [] pattern"`                                                          |
 | Input   | `"World's coolest pattern"`                                                     |
@@ -32,9 +32,9 @@ incremental.
 My first little match:
 
 ```python
-import qre
+from qre import qre
 
-assert qre.search("in [place]", "Match made in heaven") == {"place": "heaven"}
+assert qre("in [place]").search("Match made in heaven") == {"place": "heaven"}
 ```
 
 `qre` is mostly focused on collecting named groups from the input strings, so the return value is
@@ -45,7 +45,7 @@ For unnamed groups the returned object has been tweaked a little bit - they can 
 in the `unnamed` attribute:
 
 ```python
-assert qre.match("[] [:int]", "Lesson 1").unnamed == ["Lesson", 1]
+assert qre("[] [:int]").match("Lesson 1").unnamed == ["Lesson", 1]
 ```
 
 Type specifiers can be used with both named and unnamed groups. They act both as specs for the
@@ -72,12 +72,13 @@ You can register your own types and conversions with `register_type(name, regex,
 As `qre`'s goal is not to replicate the functionality of re, this can also act as the "escape hatch"
 when you need just a little bit more than what `qre` offers.
 
-Here's how to use `register_type` to turn an emoji into a textual description:
+As an entertaining example, here's how to use `register_type` to turn an emoji into a textual
+description:
 
 ```python
 qre.register_type("mood", r"[😀😞]", lambda emoji: {"😀": "good", "😞": "bad"}.get(emoji, "unknown"))
 
-assert qre.search("[mood:mood]", "I'm feeling 😀 today!") == {"mood": "good" }
+assert qre("[mood:mood]").search("I'm feeling 😀 today!") == {"mood": "good" }
 ```
 
 Note that `register_type` manipulates a global object, so you only need to register custom types
@@ -105,8 +106,8 @@ Alternatively, you can use the Matcher object. It has the following useful attri
 - `converters` for debugging the converters in use
 
 ```python
-matcher = qre.Matcher("value: [quantitative:float]|[qualitative]", case_sensitive=False)
-assert matcher.match("Value: 1.0") == {"quantitative": 1.0}  # Or any of the other functions above
+matcher = qre("value: [quantitative:float]|[qualitative]", case_sensitive=False)
+assert matcher.match("Value: 1.0") == {"quantitative": 1.0}
 assert matcher.regex == "value:\\ (?P<quantitative>[+-]?(?:[0-9]*[.])?[0-9]+)|(?P<qualitative>.*)"
 assert matcher.converters == {'quantitative': float}
 ```

@@ -4,11 +4,11 @@ from uuid import UUID
 
 import pytest
 
-import qre
+from qre import qre
 
 
 @pytest.mark.parametrize(
-    "inp, result",
+    "string, result",
     (
         ("123", {"num": 123}),
         ("-123", {"num": -123}),
@@ -18,13 +18,12 @@ import qre
         ("-123.0", {}),
     ),
 )
-def test_type_int(inp, result):
-    m = qre.Matcher("[num:int]")
-    assert m.match(inp) == result
+def test_type_int(string, result):
+    assert qre("[num:int]").match(string) == result
 
 
 @pytest.mark.parametrize(
-    "inp, result",
+    "string, result",
     (
         ("123.4", {"num": 123.4}),
         ("-123.4", {"num": -123.4}),
@@ -33,13 +32,12 @@ def test_type_int(inp, result):
         ("-123.0", {"num": -123.0}),
     ),
 )
-def test_type_float(inp, result):
-    m = qre.Matcher("[num:float]")
-    assert m.match(inp) == result
+def test_type_float(string, result):
+    assert qre("[num:float]").match(string) == result
 
 
 @pytest.mark.parametrize(
-    "inp, result",
+    "string, result",
     (
         ("123.4", {"num": Decimal("123.4")}),
         ("-123.4", {"num": Decimal("-123.4")}),
@@ -49,40 +47,35 @@ def test_type_float(inp, result):
         ("-.1", {"num": Decimal("-0.1")}),
     ),
 )
-def test_type_decimal(inp, result):
-    m = qre.Matcher("[num:decimal]")
-    assert m.match(inp) == result
+def test_type_decimal(string, result):
+    assert qre("[num:decimal]").match(string) == result
 
 
 @pytest.mark.parametrize(
-    "inp, result",
+    "string, result",
     (
         ("d4d42dd9-68de-463d-b43e-b1a12a7623d3", {"uuid": UUID("d4d42dd968de463db43eb1a12a7623d3")}),
         ("d4d42dd968de463db43eb1a12a7623d3", {"uuid": UUID("d4d42dd968de463db43eb1a12a7623d3")}),
         ("d4d42dd968de463db43eb1a12a7623", {}),
     ),
 )
-def test_type_uuid(inp, result):
-    m = qre.Matcher("[uuid:uuid]")
-    assert m.match(inp) == result
+def test_type_uuid(string, result):
+    assert qre("[uuid:uuid]").match(string) == result
 
 
 def test_type_date():
-    m = qre.Matcher("[date:date]")
-    assert m.match("2022-09-16") == {"date": datetime.date(2022, 9, 16)}
+    assert qre("[date:date]").match("2022-09-16") == {"date": datetime.date(2022, 9, 16)}
 
 
 def test_type_datetime__naive():
     now = datetime.datetime.utcnow()
     as_str = now.isoformat()
 
-    m = qre.Matcher("[datetime:datetime]")
-    assert m.match(as_str) == {"datetime": now}
+    assert qre("[datetime:datetime]").match(as_str) == {"datetime": now}
 
 
 def test_type_datetime__with_timezone():
-    m = qre.Matcher("[datetime:datetime]")
-    as_datetime = m.match("2007-11-20 22:19:17+02:00")["datetime"]
+    as_datetime = qre("[datetime:datetime]").match("2007-11-20 22:19:17+02:00")["datetime"]
 
     assert as_datetime.year == 2007
     assert as_datetime.second == 17
@@ -90,29 +83,27 @@ def test_type_datetime__with_timezone():
 
 
 @pytest.mark.parametrize(
-    "inp, result",
+    "string, result",
     (
         ("abcf123", {"chars": "abcf"}),
         ("abcf123#", {"chars": "abcf"}),
         ("ACBAAC_123", {"chars": "ACBAAC"}),
     ),
 )
-def test_type_letter(inp, result):
-    m = qre.Matcher("[chars:letters]*")
-    assert m.match(inp) == result
+def test_type_letter(string, result):
+    assert qre("[chars:letters]*").match(string) == result
 
 
 @pytest.mark.parametrize(
-    "inp, result",
+    "string, result",
     (
         ("abcf123", {"chars": "abcf123"}),
         ("abcf123#", {"chars": "abcf123"}),
         ("ACBAAC_123", {"chars": "ACBAAC_123"}),
     ),
 )
-def test_type_identifier(inp, result):
-    m = qre.Matcher("[chars:identifier]*")
-    assert m.match(inp) == result
+def test_type_identifier(string, result):
+    assert qre("[chars:identifier]*").match(string) == result
 
 
 @pytest.mark.parametrize(
@@ -127,9 +118,7 @@ def test_type_identifier(inp, result):
     ),
 )
 def test_type_open_and_close(string, result):
-    m = qre.Matcher("[:open]+[:close]")
-    print(m.match(string).unnamed)
-    assert bool(m.match(string)) == result
+    assert bool(qre("[:open]+[:close]").match(string)) == result
 
 @pytest.mark.parametrize(
     "string",
@@ -141,12 +130,11 @@ def test_type_open_and_close(string, result):
     ),
 )
 def test_type_email(string):
-    matcher = qre.Matcher("[email:email]")
-    assert matcher.match(string) == {"email": string}
+    assert qre("[email:email]").match(string) == {"email": string}
 
 
 @pytest.mark.parametrize(
-    "inp, result",
+    "string, result",
     (
         ("127.0.0.1", {"ip": "127.0.0.1"}),
         ("192.168.1.1", {"ip": "192.168.1.1"}),
@@ -159,13 +147,27 @@ def test_type_email(string):
         ("1.2.3.4", {"ip": "1.2.3.4"}),
     ),
 )
-def test_type_ipv4(inp, result):
-    m = qre.Matcher("[ip:ipv4]")
-    assert m.match(inp) == result
+def test_type_ipv4(string, result):
+    assert qre("[ip:ipv4]").match(string) == result
 
 
 @pytest.mark.parametrize(
-    "inp, result",
+    "string, result",
+    (
+        ("2001:0db8:85a3:08d3:1319:8a2e:0370:7348", {"ip": "2001:0db8:85a3:08d3:1319:8a2e:0370:7348"}),
+        ("2001:db8:85a3:8d3:1319:8a2e:370:7348", {"ip": "2001:db8:85a3:8d3:1319:8a2e:370:7348"}),
+        ("2001:db8:85a3:8d3:1319:8a2e::", {"ip": "2001:db8:85a3:8d3:1319:8a2e::"}),
+        ("fe80::1ff:fe23:4567:890a%eth2", {"ip": "fe80::1ff:fe23:4567:890a%eth2"}),
+        ("abcd:ef12:3456::", {"ip": "abcd:ef12:3456::"}),
+        ("abcd:efghi:jklm::", {}),
+    ),
+)
+def test_type_ipv6(string, result):
+    assert qre("[ip:ipv6]").match(string) == result
+
+
+@pytest.mark.parametrize(
+    "string, result",
     (
         ("4569403961014710", {"card": "4569403961014710"}),
         ("5191914942157165", {"card": "5191914942157165"}),
@@ -176,13 +178,12 @@ def test_type_ipv4(inp, result):
         ("1234566660000222", {}),
     ),
 )
-def test_type_creditcard(inp, result):
-    m = qre.Matcher("[card:creditcard]")
-    assert m.match(inp) == result
+def test_type_creditcard(string, result):
+    assert qre("[card:creditcard]").match(string) == result
 
 
 @pytest.mark.parametrize(
-    "inp, is_url",
+    "string, is_url",
     (
         ("abcdef", False),
         ("www.whatever.com", False),
@@ -194,6 +195,5 @@ def test_type_creditcard(inp, result):
         ("http://www.example.com/", True),
     ),
 )
-def test_type_url(inp, is_url):
-    m = qre.Matcher("[url:url]")
-    assert bool(m.match(inp)) == is_url
+def test_type_url(string, is_url):
+    assert bool(qre("[url:url]").match(string)) == is_url

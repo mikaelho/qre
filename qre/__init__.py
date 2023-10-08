@@ -25,6 +25,8 @@ __version__ = "2023.10.1"
 
 import itertools
 import re
+from types import SimpleNamespace
+from typing import Iterable
 from typing import List
 
 from qre.registered_types import register_type
@@ -33,8 +35,17 @@ from qre.registered_types import registered_types
 __all__ = ["register_type", "Matcher", "match", "match_start", "match_end", "search", "search_all"]
 
 
-# taken from the standard re module - minus "*+?[]", because that's our own syntax
-SPECIAL_CHARS = {i: "\\" + chr(i) for i in b"(){}-^$\\.&~# \t\n\r\v\f"}
+# taken from the stdlib re module - minus "*+?[]", because that's our own syntax
+SPECIAL_CHARS = {character: "\\" + chr(character) for character in b"(){}-^$\\.&~# \t\n\r\v\f"}
+
+
+def qre(*patterns, case_sensitive: bool = True, strict: bool = False):
+    if not patterns:
+        return ValueError("Must provide at least one pattern")
+    elif len(patterns) == 1:
+        return Matcher(patterns[0], case_sensitive=case_sensitive)
+    else:
+        return MultiMatcher(patterns, case_sensitive=case_sensitive, strict=strict)
 
 
 class MatchResult(dict):
@@ -46,15 +57,24 @@ class MatchResult(dict):
     def __bool__(self):
         return self._is_match
 
-    def all_values(self):
+    def all_values(self) -> Iterable:
         return itertools.chain(self.unnamed, self.values())
 
-    def all_items(self):
+    def all_items(self) -> Iterable[tuple]:
         return itertools.chain(((None, value) for value in self.unnamed), self.items())
+
+    def as_object(self):
+        return MatchObject(**self, unnamed=self.unnamed, _is_match=bool(self))
+
+
+class MatchObject(SimpleNamespace):
+
+    def __bool__(self):
+        return self._is_match
 
 
 class Matcher:
-    def __init__(self, pattern="*", case_sensitive=True):
+    def __init__(self, pattern: str = "*", case_sensitive: bool = True):
         self.converters = {}
         self._regex = None
         self.pattern = pattern
@@ -219,6 +239,33 @@ class Matcher:
 
     def __repr__(self):
         return f'<Matcher("{self.pattern}")>'
+
+
+class MultiMatcher:
+    def __init__(self, patterns, case_sensitive: bool = True, strict: bool = False):
+        self.matchers = [Matcher(pattern, case_sensitive=case_sensitive) for pattern in patterns]
+        self.strict = strict
+
+    @staticmethod
+    def _matcher(property_name):
+        def collect_results(self, string):
+            result = getattr(self.matchers[0], property_name)(string)
+            if not bool(result) and self.strict:
+                return result
+            for matcher in self.matchers[1:]:
+                if bool(sub_result := getattr(matcher, property_name)(string)):
+                    result.update(sub_result)
+                    result.unnamed.extend(sub_result.unnamed)
+                elif self.strict:
+                    return sub_result
+            return result
+        return collect_results
+
+    match = _matcher("match")
+    match_start = _matcher("match_start")
+    match_end = _matcher("match_end")
+    search = _matcher("search")
+    search_all = _matcher("search_all")
 
 
 def match(pattern, string, case_sensitive=True):
