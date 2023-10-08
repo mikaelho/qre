@@ -192,3 +192,47 @@ def test_case_sensitive():
     assert qre.match("HELLO [PlAnEt]", "Hello Earth", case_sensitive=False) == {
         "PlAnEt": "Earth"
     }
+
+
+def test_patterns_search():
+    matcher = qre("One", "Three")
+    assert not matcher.search("Two")
+    assert matcher.search("One Two")
+    assert matcher.search("One Two Three")
+
+
+def test_patterns_search_strict():
+    matcher = qre("One", "Three", strict=True)
+    assert not matcher.search("Two")
+    assert not matcher.search("One Two")  # strict: All or nothing
+    assert matcher.search("One Two Three")
+
+
+def test_patterns_search__named():
+    matcher = qre("Key [key:letters]", "Value [value:int]")
+    assert matcher.search("Key A") == {"key": "A"}
+    assert matcher.search("Key A, Value 1") == {"key": "A", "value": 1}
+
+
+def test_patterns_search__named__strict():
+    matcher = qre("Key [key:letters]", "Value [value:int]", strict=True)
+    assert matcher.search("Key A") == {}  # strict: All or nothing
+    assert matcher.search("Key A, Value 1") == {"key": "A", "value": 1}
+
+
+def test_patterns_search__unnamed():
+    matcher = qre("Key [:letters]", "Value [:int]")
+    assert matcher.search("Key A").unnamed == ["A"]
+    assert matcher.search("Key A, Value 1").unnamed == ["A", 1]
+
+
+def test_patterns_search__unnamed__strict():
+    matcher = qre("Key [:letters]", "Value [:int]", strict=True)
+    assert matcher.search("Key A").unnamed == []  # strict: All or nothing
+    assert matcher.search("Key A, Value 1").unnamed == ["A", 1]
+
+
+def test_patterns_overlapping_group_names():
+    matcher = qre("[value:int]", "[value:letters]")
+    assert matcher.match("1") == {"value": 1}
+    assert matcher.match("A") == {"value": "A"}
