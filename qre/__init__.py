@@ -51,11 +51,10 @@ def qre(*patterns, case_sensitive: bool = True, strict: bool = False):
 class MatchResult(dict):
 
     unnamed: list
-
-    _is_match: bool
+    _match: re.Match | None
 
     def __bool__(self):
-        return self._is_match
+        return bool(self._match)
 
     def all_values(self) -> Iterable:
         return itertools.chain(self.unnamed, self.values())
@@ -64,13 +63,53 @@ class MatchResult(dict):
         return itertools.chain(((None, value) for value in self.unnamed), self.items())
 
     def as_object(self):
-        return MatchObject(**self, unnamed=self.unnamed, _is_match=bool(self))
+        return MatchObject(**self, unnamed=self.unnamed, _match=self._match)
+
+    def replace(self, *with_values):
+        """
+        Replace matched groups, in order, with the given values.
+
+        Unnamed and named groups are treated identically here.
+        """
+        if not with_values:
+            raise ValueError("Provide one or many strings, a list or a dict of replacement values")
+        original_string = self._match.string
+
+        if len(with_values) == 1:
+            if type(with_values[0]) in (tuple, list):
+                with_values = with_values[0]
+
+            elif isinstance(with_values[0], dict):
+                replacement_values = with_values[0]
+                spans = sorted([
+                    (*self._match.span(name), replacement_values[name])
+                    for name in replacement_values
+                    if self._match.start(name) != -1
+                ])
+                return self._string_with_replacements(original_string, spans)
+
+        if type(with_values) in (tuple, list):
+            # Replace all types of groups in order
+            replacements = min(len(with_values), self._match.lastindex)
+            spans = [ (*self._match.span(i + 1), with_values[i]) for i in range(replacements)]
+            return self._string_with_replacements(original_string, spans)
+
+    @staticmethod
+    def _string_with_replacements(original_string, spans):
+        previous_end = 0
+        result_string = ""
+        for start, end, replacement_value in spans:
+            result_string += f"{original_string[previous_end:start]}{replacement_value}"
+            previous_end = end
+        if previous_end < len(original_string):
+            result_string += original_string[previous_end:]
+        return result_string
 
 
 class MatchObject(SimpleNamespace):
 
     def __bool__(self):
-        return self._is_match
+        return bool(self._match)
 
 
 class Matcher:
@@ -117,8 +156,8 @@ class Matcher:
     def _create_result(self, single_match):
         if not single_match:
             result = MatchResult()
-            result._is_match = False
             result.unnamed = []
+            result._match = None
             return result
 
         else:
@@ -128,8 +167,8 @@ class Matcher:
                 if value is not None
             }
             result = MatchResult(result_dict)
-            result._is_match = True
             result.unnamed = self._grouplist(single_match)
+            result._match = single_match
             for key, converter in self.converters.items():
                 if type(key) is int:
                     raw_value = result.unnamed[key]

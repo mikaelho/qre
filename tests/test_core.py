@@ -1,4 +1,5 @@
 import datetime
+import re
 
 import pytest
 
@@ -248,3 +249,15 @@ def test_patterns_overlapping_group_names():
     matcher = qre("[value:int]", "[value:letters]")
     assert matcher.match("1") == {"value": 1}
     assert matcher.match("A") == {"value": "A"}
+
+def test_replace_unnamed_groups():
+    string = "all types of marshmallows"
+    pattern = "[] types of [irrelevant_group_name]s"
+    replacements = "some", "pattern"
+    assert qre(pattern).match(string).replace(replacements) == "some types of patterns"
+
+def test_replace_named_groups():
+    string = "all types of marshmallows"
+    pattern = "[qualifier] types of [object]s"
+    replacements = {"object": "pattern", "qualifier": "some"}
+    assert qre(pattern).match(string).replace(replacements) == "some types of patterns"
