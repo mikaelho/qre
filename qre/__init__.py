@@ -51,10 +51,10 @@ def qre(*patterns, case_sensitive: bool = True, strict: bool = False):
 class MatchResult(dict):
 
     unnamed: list
-    _match: re.Match | None
+    _matches: list[re.Match]
 
     def __bool__(self):
-        return bool(self._match)
+        return bool(self._matches)
 
     def all_values(self) -> Iterable:
         return itertools.chain(self.unnamed, self.values())
@@ -63,7 +63,7 @@ class MatchResult(dict):
         return itertools.chain(((None, value) for value in self.unnamed), self.items())
 
     def as_object(self):
-        return MatchObject(**self, unnamed=self.unnamed, _match=self._match)
+        return MatchObject(**self, unnamed=self.unnamed, _matches=self._matches)
 
     def replace(self, *with_values):
         """
@@ -73,7 +73,9 @@ class MatchResult(dict):
         """
         if not with_values:
             raise ValueError("Provide one or many strings, a list or a dict of replacement values")
-        original_string = self._match.string
+        if not self:
+            raise ValueError("replace() can only be used on successful match")
+        original_string = self._matches[0].string  # All matches have the same matched string
 
         if len(with_values) == 1:
             if type(with_values[0]) in (tuple, list):
@@ -81,35 +83,46 @@ class MatchResult(dict):
 
             elif isinstance(with_values[0], dict):
                 replacement_values = with_values[0]
-                spans = sorted([
-                    (*self._match.span(name), replacement_values[name])
-                    for name in replacement_values
-                    if self._match.start(name) != -1
-                ])
+                spans = []
+                for name in replacement_values:
+                    for match in self._matches:
+                        try:
+                            if match.start(name) != -1:
+                                spans.append((*match.span(name), replacement_values[name]))
+                        except IndexError:  # Expected: Not all sub-matches have all replacement groups
+                            pass
+                spans.sort()
                 return self._string_with_replacements(original_string, spans)
 
         if type(with_values) in (tuple, list):
             # Replace all types of groups in order
-            replacements = min(len(with_values), self._match.lastindex)
-            spans = [ (*self._match.span(i + 1), with_values[i]) for i in range(replacements)]
+            # For multi-matches, order of sub-patterns is expected to match the replacement value order
+            spans = []
+            replacement_index = 0
+            for match_index, match in enumerate(self._matches):
+                for i in range(match.lastindex):
+                    spans.append((*match.span(i + 1), with_values[replacement_index]))
+                    replacement_index += 1
+                    if replacement_index == len(with_values):
+                        break
+            spans.sort()
             return self._string_with_replacements(original_string, spans)
 
     @staticmethod
     def _string_with_replacements(original_string, spans):
-        previous_end = 0
         result_string = ""
+        previous_end = 0
         for start, end, replacement_value in spans:
             result_string += f"{original_string[previous_end:start]}{replacement_value}"
             previous_end = end
-        if previous_end < len(original_string):
-            result_string += original_string[previous_end:]
+        result_string += original_string[previous_end:]
         return result_string
 
 
 class MatchObject(SimpleNamespace):
 
     def __bool__(self):
-        return bool(self._match)
+        return bool(self._matches)
 
 
 class Matcher:
@@ -157,7 +170,7 @@ class Matcher:
         if not single_match:
             result = MatchResult()
             result.unnamed = []
-            result._match = None
+            result._matches = []
             return result
 
         else:
@@ -168,7 +181,7 @@ class Matcher:
             }
             result = MatchResult(result_dict)
             result.unnamed = self._grouplist(single_match)
-            result._match = single_match
+            result._matches = [single_match]
             for key, converter in self.converters.items():
                 if type(key) is int:
                     raw_value = result.unnamed[key]
@@ -282,6 +295,11 @@ class Matcher:
 
 class MultiMatcher:
     def __init__(self, patterns, case_sensitive: bool = True, strict: bool = False):
+        """
+        patterns: One of more qre patterns, all of which are matched/searched and results collected into one result
+        case_sensitive: Whether case is considered when matching, default True.
+        strict: Whether all patterns must match for the overall result to be a match. Default is False, partials are ok.
+        """
         self.matchers = [Matcher(pattern, case_sensitive=case_sensitive) for pattern in patterns]
         self.strict = strict
 
@@ -295,6 +313,7 @@ class MultiMatcher:
                 if bool(sub_result := getattr(matcher, property_name)(string)):
                     result.update(sub_result)
                     result.unnamed.extend(sub_result.unnamed)
+                    result._matches.extend(sub_result._matches)
                 elif self.strict:
                     return sub_result
             return result

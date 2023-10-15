@@ -261,3 +261,15 @@ def test_replace_named_groups():
     pattern = "[qualifier] types of [object]s"
     replacements = {"object": "pattern", "qualifier": "some"}
     assert qre(pattern).match(string).replace(replacements) == "some types of patterns"
+
+def test_replace_unnamed_groups_multiple_match_patterns():
+    string = "1 email: test@test.tst"
+    patterns = "[:int]", "email[]:", "[:email]"
+    replacements = 2, "s", "test1@test.tst, test2@test.tst"
+    assert qre(*patterns).search(string).replace(replacements) == "2 emails: test1@test.tst, test2@test.tst"
+
+def test_replace_named_groups_multiple_match_patterns():
+    string = "1 email: test@test.tst"
+    patterns = "[count:int]", "email[plural]:", "[email_addresses:email]"
+    replacements = {"count": 2, "email_addresses": "test1@test.tst, test2@test.tst", "plural": "s"}
+    assert qre(*patterns).search(string).replace(replacements) == "2 emails: test1@test.tst, test2@test.tst"
