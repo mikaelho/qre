@@ -5,7 +5,6 @@ import pytest
 
 from qre import qre
 
-
 def test_readme_example_opener():
     assert qre("He* [planet]!").match("Hello World!") == {"planet": "World"}
     assert qre("It* [temp:float]?°C *").match("It's -10.2 °C outside!") == {"temp": -10.2}
@@ -22,6 +21,11 @@ def test_readme_example_basic_usage():
     assert qre("ABC-[value:int]").match("ABC-13")
 
 
+def test_flexible_spaces():
+    assert qre("Hello [place]").match("Hello   world") == {"place": "world"}
+    assert not qre("Hello [place:letters]", flexible_spaces=False).match("Hello   world")
+
+
 def test_readme_example_typehints():
     matcher = qre("[year:int]-[month:int]: [value:float]")
     assert matcher.match("2021-01: -12.786") == {
@@ -33,7 +37,7 @@ def test_readme_example_typehints():
     assert matcher.match("1234-01: 123.123")
     assert (
         matcher.regex
-        == "(?P<year>[+-]?[0-9]+)\\-(?P<month>[+-]?[0-9]+):\\ (?P<value>[+-]?(?:[0-9]*[.])?[0-9]+)"
+        == "(?P<year>[+-]?[0-9]+)\\-(?P<month>[+-]?[0-9]+):\\ +(?P<value>[+-]?(?:[0-9]*[.])?[0-9]+)"
     )
     assert matcher.converters == {"year": int, "month": int, "value": float}
 

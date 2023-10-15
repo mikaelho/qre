@@ -39,13 +39,13 @@ __all__ = ["register_type", "Matcher", "match", "match_start", "match_end", "sea
 SPECIAL_CHARS = {character: "\\" + chr(character) for character in b"(){}-^$\\.&~# \t\n\r\v\f"}
 
 
-def qre(*patterns, case_sensitive: bool = True, strict: bool = False):
+def qre(*patterns, case_sensitive: bool = True, flexible_spaces: bool = True, strict: bool = False):
     if not patterns:
         return ValueError("Must provide at least one pattern")
     elif len(patterns) == 1:
-        return Matcher(patterns[0], case_sensitive=case_sensitive)
+        return Matcher(patterns[0], case_sensitive=case_sensitive, flexible_spaces=flexible_spaces)
     else:
-        return MultiMatcher(patterns, case_sensitive=case_sensitive, strict=strict)
+        return MultiMatcher(patterns, case_sensitive=case_sensitive, flexible_spaces=flexible_spaces, strict=strict)
 
 
 class MatchResult(dict):
@@ -126,11 +126,12 @@ class MatchObject(SimpleNamespace):
 
 
 class Matcher:
-    def __init__(self, pattern: str = "*", case_sensitive: bool = True):
+    def __init__(self, pattern: str = "*", case_sensitive: bool = True, flexible_spaces=True):
         self.converters = {}
         self._regex = None
         self.pattern = pattern
         self.case_sensitive = case_sensitive
+        self.flexible_spaces = flexible_spaces
 
     @property
     def pattern(self):
@@ -214,6 +215,8 @@ class Matcher:
 
         result = re.sub(r"\[\[", r"\[", result)
         result = re.sub(r"]]", r"]", result)
+        if self.flexible_spaces:
+            result = re.sub(" ", " +", result)
 
         return result
 
@@ -294,13 +297,15 @@ class Matcher:
 
 
 class MultiMatcher:
-    def __init__(self, patterns, case_sensitive: bool = True, strict: bool = False):
+    def __init__(self, patterns, case_sensitive: bool = True, flexible_spaces=True, strict: bool = False):
         """
         patterns: One of more qre patterns, all of which are matched/searched and results collected into one result
         case_sensitive: Whether case is considered when matching, default True.
         strict: Whether all patterns must match for the overall result to be a match. Default is False, partials are ok.
         """
-        self.matchers = [Matcher(pattern, case_sensitive=case_sensitive) for pattern in patterns]
+        self.matchers = [
+            Matcher(pattern, case_sensitive=case_sensitive, flexible_spaces=flexible_spaces) for pattern in patterns
+        ]
         self.strict = strict
 
     @staticmethod

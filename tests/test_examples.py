@@ -36,7 +36,7 @@ def test_register_type():
 def test_matcher():
     matcher = qre("value: [quantitative:float]|[qualitative]", case_sensitive=False)
     assert matcher.match("Value: 1.0") == {"quantitative": 1.0}  # Or any of the other functions above
-    assert matcher.regex == "value:\\ (?P<quantitative>[+-]?(?:[0-9]*[.])?[0-9]+)|(?P<qualitative>.*)"
+    assert matcher.regex == "value:\\ +(?P<quantitative>[+-]?(?:[0-9]*[.])?[0-9]+)|(?P<qualitative>.*)"
     assert matcher.converters == {'quantitative': float}
 
 
