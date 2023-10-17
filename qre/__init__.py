@@ -95,18 +95,20 @@ class MatchResult(dict):
                 return self._string_with_replacements(original_string, spans)
 
         if type(with_values) in (tuple, list):
-            # Replace all types of groups in order
-            # For multi-matches, order of sub-patterns is expected to match the replacement value order
-            spans = []
-            replacement_index = 0
-            for match_index, match in enumerate(self._matches):
+            return self._replace_as_long_as_values_last(original_string, iter(with_values))
+
+    def _replace_as_long_as_values_last(self, original_string, values):
+        # Replace all types of groups in order
+        # For multi-matches, order of sub-patterns is expected to match the replacement value order
+        spans = []
+        try:
+            for match in self._matches:
                 for i in range(match.lastindex):
-                    spans.append((*match.span(i + 1), with_values[replacement_index]))
-                    replacement_index += 1
-                    if replacement_index == len(with_values):
-                        break
-            spans.sort()
-            return self._string_with_replacements(original_string, spans)
+                    spans.append((*match.span(i + 1), next(values)))
+        except StopIteration:
+            pass
+        spans.sort()
+        return self._string_with_replacements(original_string, spans)
 
     @staticmethod
     def _string_with_replacements(original_string, spans):
@@ -117,6 +119,43 @@ class MatchResult(dict):
             previous_end = end
         result_string += original_string[previous_end:]
         return result_string
+
+
+class MatchResultList(list):
+    def all_values(self) -> Iterable:
+        """
+        Return all matched values over all results.
+        """
+        return itertools.chain(result.all_values() for result in self)
+
+    def all_items(self) -> Iterable[tuple]:
+        """
+        Return all key/value combos of all results. Key for the unnamed groups is None.
+        """
+        return itertools.chain(result.all_items() for result in self)
+
+    def replace(self, *with_values):
+        """
+        Replace matching groups with provided values, in order of matches, regardless of whether they are named or
+        unnamed groups.
+
+        Parameters are replacement values, or a single list of replacement values.
+        """
+        if not self:
+            raise ValueError("replace() can only be used on successful match")
+        if len(with_values) == 1:
+            if type(with_values[0]) in (tuple, list):
+                with_values = with_values[0]
+        if not with_values:
+            raise ValueError("Provide one or many values, or a single list of replacement values")
+
+        string = self[0]._matches[0].string  # All matches have the same matched string
+        replacement_values = iter(with_values)
+
+        for result in self:
+            string = result._replace_as_long_as_values_last(string, replacement_values)
+
+        return string
 
 
 class MatchObject(SimpleNamespace):
@@ -163,9 +202,9 @@ class Matcher:
     def search(self, string: str) -> MatchResult:
         return self._create_result(self._compile(self.regex).search(string))
 
-    def search_all(self, string: str) -> List[MatchResult]:
+    def search_all(self, string: str) -> MatchResultList:
         compiled = self._compile(self.regex)
-        return [self._create_result(match_obj) for match_obj in compiled.finditer(string)]
+        return MatchResultList(self._create_result(match_obj) for match_obj in compiled.finditer(string))
 
     def _create_result(self, single_match):
         if not single_match:

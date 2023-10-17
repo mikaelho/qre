@@ -1,8 +1,8 @@
 import datetime
-import re
 
 import pytest
 
+from qre import MatchResult
 from qre import qre
 
 def test_readme_example_opener():
@@ -60,17 +60,17 @@ def test_functions(matcher, string, is_match):
 
 
 def test_search_all():
-    matcher = qre("nugget")
-    assert matcher.search_all("There is a nugget of information")
+    assert qre("nugget").search_all("There is a nugget of information")
 
-    matcher = qre("no nugget")
-    assert not matcher.search_all("Can't find any nuggets of information")
+    assert not qre("no nugget").search_all("Can't find any nuggets of information")
 
-    matcher = qre("nuggets")
-    assert len(matcher.search_all("There are nuggets and nuggets of information")) == 2
+    assert len(qre("nuggets").search_all("There are nuggets and nuggets of information")) == 2
 
-    matcher = qre("[:letters]")
-    assert [result.unnamed for result in matcher.search_all("Many hits here")] == [['Many'], ['hits'], ['here']]
+    assert [
+        result.unnamed for result in qre("[:letters]").search_all("Many hits here")
+    ] == [['Many'], ['hits'], ['here']]
+
+    assert qre("[word:letters]").search_all("Many hits here") == [{"word": "Many"}, {"word": "hits"}, {"word": "here"}]
 
 
 @pytest.mark.parametrize(
@@ -254,11 +254,25 @@ def test_patterns_overlapping_group_names():
     assert matcher.match("1") == {"value": 1}
     assert matcher.match("A") == {"value": "A"}
 
+
+def test_string_replace():
+    spans = [(3, 4, "foo"), (10, 12, "bar")]
+    original_string = "012345678901234567890"
+    assert MatchResult._string_with_replacements(original_string, spans) == "012foo456789bar234567890"
+
+
+def test_string_replace_empty_case():
+    spans = []
+    original_string = "012345678901234567890"
+    assert MatchResult._string_with_replacements(original_string, spans) == original_string
+
+
 def test_replace_unnamed_groups():
     string = "all types of marshmallows"
     pattern = "[] types of [irrelevant_group_name]s"
     replacements = "some", "pattern"
     assert qre(pattern).match(string).replace(replacements) == "some types of patterns"
+
 
 def test_replace_named_groups():
     string = "all types of marshmallows"
@@ -266,14 +280,25 @@ def test_replace_named_groups():
     replacements = {"object": "pattern", "qualifier": "some"}
     assert qre(pattern).match(string).replace(replacements) == "some types of patterns"
 
+
 def test_replace_unnamed_groups_multiple_match_patterns():
     string = "1 email: test@test.tst"
     patterns = "[:int]", "email[]:", "[:email]"
     replacements = 2, "s", "test1@test.tst, test2@test.tst"
     assert qre(*patterns).search(string).replace(replacements) == "2 emails: test1@test.tst, test2@test.tst"
 
+
 def test_replace_named_groups_multiple_match_patterns():
     string = "1 email: test@test.tst"
     patterns = "[count:int]", "email[plural]:", "[email_addresses:email]"
     replacements = {"count": 2, "email_addresses": "test1@test.tst, test2@test.tst", "plural": "s"}
     assert qre(*patterns).search(string).replace(replacements) == "2 emails: test1@test.tst, test2@test.tst"
+
+
+def test_replace_multiple_search_hits():
+    string = "A B C"
+    pattern = "[:letters]"
+    assert qre(pattern).search_all(string).replace(1) == "1 B C"
+    assert qre(pattern).search_all(string).replace(1, 2) == "1 2 C"
+    assert qre(pattern).search_all(string).replace([1, 2, 3]) == "1 2 3"
+    assert qre(pattern).search_all(string).replace(1, 2, 3, 4) == "1 2 3"
